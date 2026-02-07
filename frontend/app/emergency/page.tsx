@@ -1,54 +1,37 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import axios from "axios"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../components/ToastContext"
 import Button from "../../components/Button"
 
-type EmergencyRequest = {
-  id: string
-  blood_group: string
-  city: string
+interface RecentRequestFilters {
+  city?: string
+  blood_group?: string
 }
 
 export default function EmergencyPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
-  const [recentRequests, setRecentRequests] = useState<EmergencyRequest[]>([])
-
+  const [recentRequests, setRecentRequests] = useState<any[]>([]) // adjust type if you have an interface
   const { token } = useAuth()
   const toast = useToast()
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || ""
 
-  // ✅ FIX 1: refetch has NO parameters
-  const refetch = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/api/emergency/recent`)
-      setRecentRequests(res.data || [])
-    } catch (err) {
-      console.error("Failed to fetch recent requests")
-    }
-  }
-
-  // load recent requests on page load
-  useEffect(() => {
-    refetch()
-  }, [])
-
+  // Submit new emergency request
   const submitRequest = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
     setMessage("")
 
     const form = e.currentTarget
-
     const data = {
-      blood_group: (form.elements.namedItem("blood_group") as HTMLSelectElement).value,
-      units: Number((form.elements.namedItem("units") as HTMLInputElement).value),
-      city: (form.elements.namedItem("city") as HTMLInputElement).value,
-      urgency_level: (form.elements.namedItem("urgency") as HTMLSelectElement).value,
+      blood_group: form.blood_group.value,
+      units: Number(form.units.value),
+      city: form.city.value,
+      urgency_level: form.urgency.value,
     }
 
     try {
@@ -60,6 +43,8 @@ export default function EmergencyPage() {
       setMessage(successMsg)
       toast?.success?.(successMsg)
       form.reset()
+
+      // Refresh recent requests after creating a new one
       refetch()
     } catch (err: any) {
       const errMsg =
@@ -68,6 +53,22 @@ export default function EmergencyPage() {
       toast?.error?.(errMsg)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Fetch recent requests
+  const refetch = async (filters?: RecentRequestFilters) => {
+    try {
+      const params = filters || {}
+      const res = await axios.get(`${API_BASE}/api/emergency/requests`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        params,
+      })
+      setRecentRequests(res.data)
+    } catch (err: any) {
+      const errMsg =
+        err?.response?.data?.message || "Failed to fetch recent requests"
+      toast?.error?.(errMsg)
     }
   }
 
@@ -85,7 +86,9 @@ export default function EmergencyPage() {
             className="w-full border p-2 rounded"
             defaultValue=""
           >
-            <option value="" disabled>Select Blood Group</option>
+            <option value="" disabled>
+              Select Blood Group
+            </option>
             <option value="A+">A+</option>
             <option value="A-">A-</option>
             <option value="B+">B+</option>
@@ -118,54 +121,46 @@ export default function EmergencyPage() {
             className="w-full border p-2 rounded"
             defaultValue=""
           >
-            <option value="" disabled>Urgency Level</option>
+            <option value="" disabled>
+              Urgency Level
+            </option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="critical">Critical</option>
           </select>
 
-          <button
-            disabled={loading}
-            className="w-full bg-red-600 text-white py-2 rounded hover:bg-red-700 transition"
-          >
-            {loading ? "Submitting..." : "Submit Emergency Request"}
-          </button>
+          <Button type="submit" variant="solid" disabled={loading}>
+            {loading ? "Submitting..." : "Submit Request"}
+          </Button>
         </form>
 
-        {/* ✅ RECENT REQUESTS */}
-        <div className="mt-8 pt-6 border-t">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Recent requests</h3>
+        <div className="flex items-center justify-between mt-6">
+          <h3 className="font-semibold">Recent requests</h3>
+          <Button variant="outline" onClick={() => refetch()}>
+            Refresh
+          </Button>
+        </div>
 
-            {/* ✅ FIX 2: wrap in arrow function */}
-            <Button variant="outline" onClick={() => refetch()}>
-              Refresh
-            </Button>
-          </div>
-
-          <div className="mt-4 space-y-2">
-            {recentRequests.length === 0 ? (
-              <p className="text-xs text-gray-500">No recent requests</p>
-            ) : (
-              recentRequests.map((req) => (
-                <div
-                  key={req.id}
-                  className="text-sm p-2 bg-gray-50 rounded border"
-                >
-                  <span className="font-bold text-red-600">
-                    {req.blood_group}
-                  </span>{" "}
-                  needed in {req.city}
-                </div>
-              ))
-            )}
-          </div>
+        <div className="mt-4 space-y-2">
+          {recentRequests.length === 0 ? (
+            <p className="text-sm text-gray-500">No recent requests</p>
+          ) : (
+            recentRequests.map((req, idx) => (
+              <div
+                key={idx}
+                className="border rounded p-2 text-sm bg-red-50"
+              >
+                <p>
+                  <strong>{req.blood_group}</strong> – {req.units} units –{" "}
+                  {req.city} ({req.urgency_level})
+                </p>
+              </div>
+            ))
+          )}
         </div>
 
         {message && (
-          <p className="mt-4 text-center text-sm text-gray-700">
-            {message}
-          </p>
+          <p className="mt-4 text-center text-sm text-gray-700">{message}</p>
         )}
       </div>
     </main>

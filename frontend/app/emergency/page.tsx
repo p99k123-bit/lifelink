@@ -4,16 +4,17 @@ import { useState } from "react"
 import axios from "axios"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../components/ToastContext"
-import Button from "../../components/Button"
 
 export default function EmergencyPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
+  const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([])
   const { token } = useAuth()
   const toast = useToast()
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || ""
 
+  // Submit new emergency request
   const submitRequest = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
@@ -28,24 +29,40 @@ export default function EmergencyPage() {
     }
 
     try {
-      await axios.post(
-        `${API_BASE}/api/emergency/request`,
-        data,
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }
-      )
+      await axios.post(`${API_BASE}/api/emergency/request`, data, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
 
       const successMsg = "Emergency request created successfully 🚑"
       setMessage(successMsg)
       toast?.success?.(successMsg)
       form.reset()
+
+      // Refresh recent requests after submitting
+      refetch()
     } catch (err: any) {
-      const errMsg = err?.response?.data?.message || "Failed to create emergency request"
+      const errMsg =
+        err?.response?.data?.message || "Failed to create emergency request"
       setMessage(errMsg)
       toast?.error?.(errMsg)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Fetch recent requests
+  const refetch = async (filters?: RecentRequestFilters) => {
+    try {
+      const params = filters || {}
+      const res = await axios.get(`${API_BASE}/api/emergency/requests`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        params,
+      })
+      setRecentRequests(res.data)
+    } catch (err: any) {
+      const errMsg =
+        err?.response?.data?.message || "Failed to fetch recent requests"
+      toast?.error?.(errMsg)
     }
   }
 
@@ -63,7 +80,9 @@ export default function EmergencyPage() {
             className="w-full border p-2 rounded"
             defaultValue=""
           >
-            <option value="" disabled>Select Blood Group</option>
+            <option value="" disabled>
+              Select Blood Group
+            </option>
             <option value="A+">A+</option>
             <option value="A-">A-</option>
             <option value="B+">B+</option>
@@ -96,24 +115,24 @@ export default function EmergencyPage() {
             className="w-full border p-2 rounded"
             defaultValue=""
           >
-            <option value="" disabled>Urgency Level</option>
+            <option value="" disabled>
+              Urgency Level
+            </option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="critical">Critical</option>
           </select>
 
-         // ...existing code...
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Recent requests</h3>
--             <Button variant="outline" onClick={refetch}>Refresh</Button>
-+             <Button variant="outline" onClick={() => refetch()}>Refresh</Button>
-            </div>
-// ...existing code...
+          <button
+            disabled={loading}
+            className="w-full bg-red-600 text-white py-2 rounded hover:bg-red-700 transition"
+          >
+            {loading ? "Submitting..." : "Submit Emergency Request"}
+          </button>
+        </form>
 
         {message && (
-          <p className="mt-4 text-center text-sm text-gray-700">
-            {message}
-          </p>
+          <p className="mt-4 text-center text-sm text-gray-700">{message}</p>
         )}
       </div>
     </main>

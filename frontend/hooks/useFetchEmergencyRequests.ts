@@ -1,4 +1,5 @@
-"use client"
+'use client'
+
 import { useEffect, useState } from 'react'
 import { emergencyApi } from '../lib/api'
 
@@ -7,9 +8,10 @@ export default function useFetchEmergencyRequests(params?: any) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<any>(null)
 
-  useEffect(() => {
+  const fetchData = () => {
     let mounted = true
     setLoading(true)
+
     emergencyApi
       .list()
       .then((res: any) => {
@@ -23,7 +25,17 @@ export default function useFetchEmergencyRequests(params?: any) {
     return () => {
       mounted = false
     }
+  }
+
+  useEffect(() => {
+    fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(params)])
 
-  return { data, loading, error }
+  return {
+    data,
+    loading,
+    error,
+    refetch: fetchData, // ✅ ONLY ADDITION
+  }
 }

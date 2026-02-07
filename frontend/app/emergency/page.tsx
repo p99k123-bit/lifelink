@@ -11,10 +11,17 @@ interface RecentRequestFilters {
   blood_group?: string
 }
 
+interface RecentRequest {
+  blood_group: string
+  units: number
+  city: string
+  urgency_level: string
+}
+
 export default function EmergencyPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
-  const [recentRequests, setRecentRequests] = useState<any[]>([]) // adjust type if you have an interface
+  const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([])
   const { token } = useAuth()
   const toast = useToast()
 
@@ -44,7 +51,7 @@ export default function EmergencyPage() {
       toast?.success?.(successMsg)
       form.reset()
 
-      // Refresh recent requests after creating a new one
+      // Refresh recent requests after submitting
       refetch()
     } catch (err: any) {
       const errMsg =
@@ -129,18 +136,21 @@ export default function EmergencyPage() {
             <option value="critical">Critical</option>
           </select>
 
-          <Button type="submit" variant="solid" disabled={loading}>
+          {/* Submit button */}
+          <Button type="submit" variant="primary" disabled={loading}>
             {loading ? "Submitting..." : "Submit Request"}
           </Button>
         </form>
 
+        {/* Recent requests header and refresh */}
         <div className="flex items-center justify-between mt-6">
           <h3 className="font-semibold">Recent requests</h3>
-          <Button variant="outline" onClick={() => refetch()}>
+          <Button variant="ghost" onClick={() => refetch()}>
             Refresh
           </Button>
         </div>
 
+        {/* Recent requests list */}
         <div className="mt-4 space-y-2">
           {recentRequests.length === 0 ? (
             <p className="text-sm text-gray-500">No recent requests</p>

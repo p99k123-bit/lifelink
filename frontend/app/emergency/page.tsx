@@ -4,6 +4,7 @@ import { useState } from "react"
 import axios from "axios"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../components/ToastContext"
+import Button from "../../components/Button"
 
 export default function EmergencyPage() {
   const [loading, setLoading] = useState(false)
@@ -101,13 +102,13 @@ export default function EmergencyPage() {
             <option value="critical">Critical</option>
           </select>
 
-          <button
-            disabled={loading}
-            className="w-full bg-red-600 text-white py-2 rounded hover:bg-red-700 transition"
-          >
-            {loading ? "Submitting..." : "Submit Emergency Request"}
-          </button>
-        </form>
+         // ...existing code...
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Recent requests</h3>
+-             <Button variant="outline" onClick={refetch}>Refresh</Button>
++             <Button variant="outline" onClick={() => refetch()}>Refresh</Button>
+            </div>
+// ...existing code...
 
         {message && (
           <p className="mt-4 text-center text-sm text-gray-700">

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 
@@ -13,7 +13,7 @@ export default function ProtectedRoute({ children, allowedRoles, role }: Props) 
   const { user, role: userRole, loading } = useAuth();
   const router = useRouter();
 
-  const normalizedAllowed = role ? [role] : allowedRoles ?? [];
+  const normalizedAllowed = useMemo(() => (role ? [role] : allowedRoles ?? []), [role, allowedRoles]);
 
   useEffect(() => {
     if (loading) return;

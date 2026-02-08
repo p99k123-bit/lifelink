@@ -1,14 +1,14 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../../../frontend/context/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 
 export default function SignupPage() {
   const router = useRouter();
   const { signup } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"donor" | "hospital" | "admin">("donor");
+  const [selectedRole, setSelectedRole] = useState<"donor" | "hospital">("donor");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handle = async (e: React.FormEvent) => {
@@ -18,7 +18,6 @@ export default function SignupPage() {
       console.log("Signup complete, role:", r);
       if (selectedRole === "donor") router.push("/donor/dashboard");
       else if (selectedRole === "hospital") router.push("/hospital/dashboard");
-      else if (selectedRole === "admin") router.push("/admin/dashboard");
       else router.push("/");
     } catch (err: any) {
       console.error("Signup failed:", err);
@@ -53,7 +52,6 @@ export default function SignupPage() {
           >
             <option value="donor">Donor</option>
             <option value="hospital">Hospital</option>
-            <option value="admin">Admin</option>
           </select>
         </label>
         <button type="submit" className="bg-blue-500 text-white rounded px-4 py-2">

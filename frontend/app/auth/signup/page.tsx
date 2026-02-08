@@ -1,59 +1,54 @@
-"use client"
-
-import React from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { supabase } from "../../../lib/supabaseClient"
-import Input from "../../../components/Input"
-import Button from "../../../components/Button"
-
-const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  role: z.enum(["donor", "hospital", "admin"]).optional(),
-})
-type Form = z.infer<typeof schema>
+"use client";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../../../frontend/context/AuthContext";
 
 export default function SignupPage() {
-  const { register, handleSubmit } = useForm<Form>({
-    resolver: zodResolver(schema),
-    defaultValues: { role: "donor" },
-  })
+  const router = useRouter();
+  const { signup } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"donor" | "hospital" | "admin">("donor");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const onSubmit = async (vals: Form) => {
+  const handle = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: vals.email,
-        password: vals.password,
-      })
-
-      if (error) throw error
-
-      const user = data.user
-      if (!user) return
-
-      // insert role into profiles table
-      await supabase.from("profiles").insert({
-        id: user.id,
-        role: vals.role ?? "donor",
-      })
-    } catch (err) {
-      console.error("Signup failed:", err)
+      const r = await signup(email, password, selectedRole);
+      console.log("Signup complete, role:", r);
+      if (selectedRole === "donor") router.push("/donor/dashboard");
+      else if (selectedRole === "hospital") router.push("/hospital/dashboard");
+      else if (selectedRole === "admin") router.push("/admin/dashboard");
+      else router.push("/");
+    } catch (err: any) {
+      console.error("Signup failed:", err);
+      setErrorMsg(err?.message || String(err));
     }
-  }
+  };
 
   return (
     <div className="max-w-md mx-auto bg-white p-6 rounded shadow">
       <h2 className="text-xl font-semibold mb-4">Sign up</h2>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
-        <Input label="Email" {...register("email")} />
-        <Input label="Password" type="password" {...register("password")} />
-
+      {errorMsg && <div style={{ color: "red" }}>{errorMsg}</div>}
+      <form onSubmit={handle} className="flex flex-col gap-3">
+        <input
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="border rounded px-3 py-2 w-full"
+        />
+        <input
+          placeholder="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="border rounded px-3 py-2 w-full"
+        />
         <label className="block">
           <div className="text-sm mb-1">Role</div>
           <select
-            {...register("role")}
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value as any)}
             className="border rounded px-3 py-2 w-full"
           >
             <option value="donor">Donor</option>
@@ -61,9 +56,10 @@ export default function SignupPage() {
             <option value="admin">Admin</option>
           </select>
         </label>
-
-        <Button type="submit">Create account</Button>
+        <button type="submit" className="bg-blue-500 text-white rounded px-4 py-2">
+          Create account
+        </button>
       </form>
     </div>
-  )
+  );
 }

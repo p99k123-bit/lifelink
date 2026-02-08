@@ -1,161 +1,178 @@
-"use client"
-
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from 'react'
-import { useRouter } from 'next/navigation'
-import { useToast } from '../components/ToastContext'
-
-/* ================= TYPES ================= */
-
-type User = {
-  id: string
-  name?: string
-  email: string
-  role?: 'donor' | 'hospital' | 'admin'
-}
+"use client";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 
 type AuthContextType = {
-  user: User | null
-  token: string | null
-  loading: boolean
-  login: (email: string, password: string) => Promise<void>
-  signup: (email: string, password: string, role?: User['role']) => Promise<void>
-  signout: () => void
-  refreshUser: () => Promise<void>
-}
+  user: any | null;
+  role: string | null;
+  loading: boolean;
+  signup: (email: string, password: string, role?: string) => Promise<string | null>;
+  login: (email: string, password: string) => Promise<string | null>;
+  logout: () => Promise<void>;
+};
 
-/* ================= CONTEXT ================= */
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<any | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-/* ================= PROVIDER ================= */
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  const router = useRouter()
-  const toast = useToast()
+  const fetchProfile = async (id: string | null) => {
+    if (!id) {
+      setRole(null);
+      return null;
+    }
+    console.log("Fetching profile for:", id);
+    try {
+      const { data, error } = await supabase.from("profiles").select("role,email").eq("id", id).single();
+      if (error) {
+        console.warn("Error fetching profile:", error.message || error);
+        return null;
+      }
+      setRole(data?.role ?? null);
+      return data?.role ?? null;
+    } catch (err) {
+      console.error("fetchProfile unexpected error:", err);
+      return null;
+    }
+  };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const t = localStorage.getItem('bl_token')
-    const u = localStorage.getItem('bl_user')
-
-    if (t) setToken(t)
-    if (u) {
+    let mounted = true;
+    const init = async () => {
       try {
-        setUser(JSON.parse(u))
-      } catch {
-        setUser(null)
+        setLoading(true);
+        try {
+          const {
+            data: { session },
+            error,
+          } = await supabase.auth.getSession();
+          if (error) console.warn("getSession warning:", error);
+          const currentUser = session?.user ?? null;
+          if (mounted) setUser(currentUser);
+          await fetchProfile(currentUser?.id ?? null);
+        } catch (err) {
+          // supabase client might be stubbed/missing — log and continue
+          console.warn("Supabase getSession failed:", (err as Error).message || err);
+          if (mounted) {
+            setUser(null);
+            setRole(null);
+          }
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
+    };
+    init();
+
+    let subscriptionUnsub: (() => void) | null = null;
+
+    try {
+      const ret = supabase.auth.onAuthStateChange((event: any, session: { user?: any } | null) => {
+        console.log("Auth state changed:", event);
+        const u = session?.user ?? null;
+        setUser(u);
+        fetchProfile(u?.id ?? null).catch((e) => console.error("fetchProfile error:", e));
+      });
+      // support both real and stub shapes
+      subscriptionUnsub = (ret as any)?.data?.subscription?.unsubscribe ?? (ret as any)?.unsubscribe ?? null;
+    } catch (err) {
+      console.warn("onAuthStateChange not available:", (err as Error).message || err);
     }
 
-    setLoading(false)
+    return () => {
+      mounted = false;
+      try {
+        if (typeof subscriptionUnsub === "function") subscriptionUnsub();
+      } catch (err) {
+        console.warn("Failed to unsubscribe auth listener:", (err as Error).message || err);
+      }
+    };
+  }, []);
 
-    if (t) refreshUser().catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const persist = (t: string | null, u: User | null) => {
-    setToken(t)
-    setUser(u)
-
-    if (typeof window !== 'undefined') {
-      if (t) localStorage.setItem('bl_token', t)
-      else localStorage.removeItem('bl_token')
-
-      if (u) localStorage.setItem('bl_user', JSON.stringify(u))
-      else localStorage.removeItem('bl_user')
+  const signup = async (email: string, password: string, roleParam: string = "donor") => {
+    setLoading(true);
+    console.log("Signup attempt:", email, roleParam);
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        console.error("Signup error:", error);
+        throw error;
+      }
+      const userId = data.user?.id ?? data?.session?.user?.id ?? null;
+      if (!userId) {
+        console.warn("Signup succeeded but no user id returned; profile may be created after confirmation.");
+        setLoading(false);
+        return roleParam;
+      }
+      // Try to set role on profile; tolerate failures but surface them
+      try {
+        const { error: upErr } = await supabase.from("profiles").upsert({ id: userId, email, role: roleParam });
+        if (upErr) {
+          console.error("Failed to set role on profile:", upErr);
+          throw upErr;
+        }
+      } catch (err) {
+        console.error("Upsert profile error:", err);
+        throw err;
+      }
+      await fetchProfile(userId);
+      console.log("Signup complete for:", userId);
+      return roleParam;
+    } finally {
+      setLoading(false);
     }
-  }
-
-  /* ================= ACTIONS ================= */
+  };
 
   const login = async (email: string, password: string) => {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: 'Login failed' }))
-      toast?.error(err.message || 'Login failed')
-      throw new Error(err.message || 'Login failed')
+    setLoading(true);
+    console.log("Login attempt:", email);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.error("Login error:", error);
+        throw error;
+      }
+      const userId = data.user?.id ?? data.session?.user?.id ?? null;
+      if (!userId) {
+        console.warn("Login succeeded but no user id found.");
+        setUser(data.user ?? data.session?.user ?? null);
+        setLoading(false);
+        return null;
+      }
+      setUser(data.user ?? data.session?.user ?? null);
+      const r = await fetchProfile(userId);
+      setLoading(false);
+      console.log("Login successful:", userId, "role:", r);
+      return r;
+    } catch (err) {
+      setLoading(false);
+      throw err;
     }
+  };
 
-    const data = await res.json()
-    persist(data.token, data.user)
-    toast?.success('Logged in')
-    router.push('/dashboard')
-  }
-
-  const signup = async (
-    email: string,
-    password: string,
-    role: User['role'] = 'donor'
-  ) => {
-    const res = await fetch(`${API_BASE}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, role }),
-    })
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: 'Signup failed' }))
-      toast?.error(err.message || 'Signup failed')
-      throw new Error(err.message || 'Signup failed')
+  const logout = async () => {
+    setLoading(true);
+    console.log("Signing out");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Sign out error:", error);
+        throw error;
+      }
+      setUser(null);
+      setRole(null);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    toast?.success('Signup successful. Please login.')
-    router.push('/auth/login')
-  }
-
-  const refreshUser = async () => {
-    if (!token) return
-
-    const res = await fetch(`${API_BASE}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-
-    if (!res.ok) {
-      persist(null, null)
-      return
-    }
-
-    const data = await res.json()
-    setUser(data.user)
-    localStorage.setItem('bl_user', JSON.stringify(data.user))
-  }
-
-  const signout = () => {
-    persist(null, null)
-    toast?.info('Signed out')
-    router.push('/auth/login')
-  }
-
-  return (
-    <AuthContext.Provider
-      value={{ user, token, loading, login, signup, signout, refreshUser }}
-    >
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={{ user, role, loading, signup, login, logout }}>{children}</AuthContext.Provider>;
 }
 
-/* ================= HOOK ================= */
-
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
-  return ctx
-}
+export const useAuth = (): AuthContextType => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
+};

@@ -1,15 +1,30 @@
-import Link from 'next/link'
-import React from 'react'
+"use client";
+import Link from "next/link";
+import React from "react";
 
-export default function Home() {
+export default function HomePage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
       <header className="flex flex-col items-center text-center gap-6">
-        <h1 className="text-3xl sm:text-5xl font-bold">Donate blood. Save lives.</h1>
-        <p className="text-gray-600 max-w-xl">A simple platform connecting donors and hospitals in emergencies.</p>
+        <h1 className="text-3xl sm:text-5xl font-bold">
+          Donate blood. Save lives.
+        </h1>
+        <p className="text-gray-600 max-w-xl">
+          A simple platform connecting donors and hospitals in emergencies.
+        </p>
         <div className="flex gap-4">
-          <Link href="/auth/signup" className="btn-blood px-4 py-2 rounded shadow">Donate Blood</Link>
-          <Link href="/auth/login" className="px-4 py-2 rounded border">Request Blood</Link>
+          <Link
+            href="/auth/signup"
+            className="btn-blood px-4 py-2 rounded shadow"
+          >
+            Donate Blood
+          </Link>
+          <Link
+            href="/auth/login"
+            className="px-4 py-2 rounded border"
+          >
+            Request Blood
+          </Link>
         </div>
       </header>
 
@@ -46,10 +61,20 @@ export default function Home() {
         <h1 className="text-3xl font-bold mb-4">BloodLine</h1>
         <p className="mb-6">Connect donors, hospitals and admins to save lives.</p>
         <div className="flex justify-center gap-4">
-          <Link href="/auth/signup" className="px-4 py-2 bg-blue-600 text-white rounded">Get Started</Link>
-          <Link href="/auth/login" className="px-4 py-2 border rounded">Login</Link>
+          <Link
+            href="/auth/signup"
+            className="px-4 py-2 bg-blue-600 text-white rounded"
+          >
+            Get Started
+          </Link>
+          <Link
+            href="/auth/login"
+            className="px-4 py-2 border rounded"
+          >
+            Login
+          </Link>
         </div>
       </div>
     </div>
-  )
+  );
 }

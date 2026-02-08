@@ -2,9 +2,20 @@
 
 import Link from "next/link"
 import { useAuth } from "../context/AuthContext"
+import { useRouter } from "next/navigation"
 
 export default function Navbar() {
-  const { user, loading, signout } = useAuth()
+  const { user, role, logout } = useAuth()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      router.push("/")
+    } catch (err) {
+      console.error("Logout failed:", err)
+    }
+  }
 
   return (
     <nav className="w-full bg-white border-b">
@@ -15,7 +26,7 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           <Link href="/about">About</Link>
           <Link href="/emergency">Emergency</Link>
-          {!loading && !user && (
+          {!user && (
             <>
               <Link
                 href="/auth/login"
@@ -31,16 +42,19 @@ export default function Navbar() {
               </Link>
             </>
           )}
-          {!loading && user && (
+          {user && role === "donor" && (
+            <Link href="/donor/dashboard">Donor Dashboard</Link>
+          )}
+          {user && role === "hospital" && (
+            <Link href="/hospital/dashboard">Hospital Dashboard</Link>
+          )}
+          {user && role === "admin" && (
+            <Link href="/admin/dashboard">Admin Dashboard</Link>
+          )}
+          {user && (
             <>
-              <Link
-                href="/dashboard"
-                className="px-3 py-1 rounded"
-              >
-                Dashboard
-              </Link>
               <button
-                onClick={() => signout()}
+                onClick={handleLogout}
                 className="px-3 py-1 rounded bg-red-500 text-white"
               >
                 Logout

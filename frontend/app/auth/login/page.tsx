@@ -1,78 +1,52 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { supabase } from "../../../lib/supabaseClient"
-import Input from "../../../components/Input"
-import Button from "../../../components/Button"
-
-const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-})
-type Form = z.infer<typeof schema>
+import { useAuth } from "../../../../frontend/context/AuthContext"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login } = useAuth()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  const {
-    register,
-    handleSubmit,
-    setError,
-    formState: { errors, isSubmitting },
-  } = useForm<Form>({ resolver: zodResolver(schema) })
-
-  const onSubmit = async (values: Form) => {
+  const handle = async (e: React.FormEvent) => {
+    e.preventDefault()
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
-      })
-
-      if (error) throw error
-
-      const user = data.user
-
-      // fetch role from profiles table
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single()
-
-      const role = profile?.role ?? "donor"
-
-      if (role === "admin") router.push("/admin/dashboard")
-      else if (role === "hospital") router.push("/hospital/dashboard")
-      else router.push("/donor/dashboard")
+      const r = await login(email, password)
+      console.log("Post-login role:", r)
+      if (r === "donor") router.push("/donor/dashboard")
+      else if (r === "hospital") router.push("/hospital/dashboard")
+      else if (r === "admin") router.push("/admin/dashboard")
+      else router.push("/")
     } catch (err: any) {
-      setError("password", {
-        type: "manual",
-        message: err.message ?? "Login failed",
-      })
+      console.error("Login failed:", err)
+      setErrorMsg(err?.message || String(err))
     }
   }
 
   return (
     <div className="max-w-md mx-auto p-4">
       <h2 className="text-2xl font-semibold mb-4">Login</h2>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Input label="Email" type="email" {...register("email")} />
-        {errors.email && (
-          <p className="text-sm text-red-600">{errors.email.message}</p>
-        )}
-
-        <Input label="Password" type="password" {...register("password")} />
-        {errors.password && (
-          <p className="text-sm text-red-600">{errors.password.message}</p>
-        )}
-
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Logging in..." : "Login"}
-        </Button>
+      {errorMsg && <div style={{ color: "red" }}>{errorMsg}</div>}
+      <form onSubmit={handle} className="space-y-4">
+        <input
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full p-2 border rounded"
+        />
+        <input
+          placeholder="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full p-2 border rounded"
+        />
+        <button type="submit" className="w-full p-2 bg-blue-600 text-white rounded">
+          Login
+        </button>
       </form>
     </div>
   )

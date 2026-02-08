@@ -1,3 +1,6 @@
+"use client";
+import React from "react";
+
 export default function AboutPage() {
   return (
     <main className="min-h-screen bg-gray-50 px-6 py-12">
@@ -39,5 +42,5 @@ export default function AboutPage() {
         </p>
       </div>
     </main>
-  )
+  );
 }

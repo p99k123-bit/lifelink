@@ -1,68 +1,75 @@
 "use client"
 
 import { useState } from "react"
-import axios from "axios"
-import { useAuth } from "../../context/AuthContext"
+import { supabase } from "../../lib/supabaseClient"
 import { useToast } from "../../components/ToastContext"
+
+type EmergencyRequest = {
+  id: string
+  blood_group: string
+  units: number
+  city: string
+  urgency_level: string
+  created_at: string
+}
 
 export default function EmergencyPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
-  const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([])
-  const { token } = useAuth()
+  const [requests, setRequests] = useState<EmergencyRequest[]>([])
   const toast = useToast()
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || ""
-
-  // Submit new emergency request
+  /* ========== SUBMIT REQUEST ========== */
   const submitRequest = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
     setMessage("")
 
     const form = e.currentTarget
-    const data = {
-      blood_group: form.blood_group.value,
-      units: Number(form.units.value),
-      city: form.city.value,
-      urgency_level: form.urgency.value,
+
+    const payload = {
+      blood_group: (form.elements.namedItem("blood_group") as HTMLSelectElement).value,
+      units: Number((form.elements.namedItem("units") as HTMLInputElement).value),
+      city: (form.elements.namedItem("city") as HTMLInputElement).value,
+      urgency_level: (form.elements.namedItem("urgency") as HTMLSelectElement).value,
     }
 
-    try {
-      await axios.post(`${API_BASE}/api/emergency/request`, data, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      })
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-      const successMsg = "Emergency request created successfully 🚑"
-      setMessage(successMsg)
-      toast?.success?.(successMsg)
-      form.reset()
-
-      // Refresh recent requests after submitting
-      refetch()
-    } catch (err: any) {
-      const errMsg =
-        err?.response?.data?.message || "Failed to create emergency request"
-      setMessage(errMsg)
-      toast?.error?.(errMsg)
-    } finally {
+    if (!user) {
+      toast?.error?.("Please login first")
       setLoading(false)
+      return
     }
+
+    const { error } = await supabase.from("emergency_requests").insert({
+      ...payload,
+      user_id: user.id,
+    })
+
+    if (error) {
+      toast?.error?.(error.message)
+    } else {
+      toast?.success?.("Emergency request created 🚑")
+      setMessage("Emergency request created successfully 🚑")
+      form.reset()
+      fetchRequests()
+    }
+
+    setLoading(false)
   }
 
-  // Fetch recent requests
-  const refetch = async (filters?: RecentRequestFilters) => {
-    try {
-      const params = filters || {}
-      const res = await axios.get(`${API_BASE}/api/emergency/requests`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        params,
-      })
-      setRecentRequests(res.data)
-    } catch (err: any) {
-      const errMsg =
-        err?.response?.data?.message || "Failed to fetch recent requests"
-      toast?.error?.(errMsg)
+  /* ========== FETCH REQUESTS ========== */
+  const fetchRequests = async () => {
+    const { data, error } = await supabase
+      .from("emergency_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (!error && data) {
+      setRequests(data)
     }
   }
 
@@ -74,66 +81,30 @@ export default function EmergencyPage() {
         </h1>
 
         <form onSubmit={submitRequest} className="space-y-4">
-          <select
-            name="blood_group"
-            required
-            className="w-full border p-2 rounded"
-            defaultValue=""
-          >
-            <option value="" disabled>
-              Select Blood Group
-            </option>
-            <option value="A+">A+</option>
-            <option value="A-">A-</option>
-            <option value="B+">B+</option>
-            <option value="B-">B-</option>
-            <option value="O+">O+</option>
-            <option value="O-">O-</option>
-            <option value="AB+">AB+</option>
-            <option value="AB-">AB-</option>
+          <select name="blood_group" required className="w-full border p-2 rounded">
+            <option value="">Select Blood Group</option>
+            <option>A+</option><option>A-</option>
+            <option>B+</option><option>B-</option>
+            <option>O+</option><option>O-</option>
+            <option>AB+</option><option>AB-</option>
           </select>
 
-          <input
-            name="units"
-            type="number"
-            min={1}
-            required
-            placeholder="Units Required"
-            className="w-full border p-2 rounded"
-          />
+          <input name="units" type="number" min={1} required placeholder="Units" className="w-full border p-2 rounded" />
+          <input name="city" required placeholder="City" className="w-full border p-2 rounded" />
 
-          <input
-            name="city"
-            required
-            placeholder="City"
-            className="w-full border p-2 rounded"
-          />
-
-          <select
-            name="urgency"
-            required
-            className="w-full border p-2 rounded"
-            defaultValue=""
-          >
-            <option value="" disabled>
-              Urgency Level
-            </option>
+          <select name="urgency" required className="w-full border p-2 rounded">
+            <option value="">Urgency</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="critical">Critical</option>
           </select>
 
-          <button
-            disabled={loading}
-            className="w-full bg-red-600 text-white py-2 rounded hover:bg-red-700 transition"
-          >
-            {loading ? "Submitting..." : "Submit Emergency Request"}
+          <button disabled={loading} className="w-full bg-red-600 text-white py-2 rounded">
+            {loading ? "Submitting..." : "Submit"}
           </button>
         </form>
 
-        {message && (
-          <p className="mt-4 text-center text-sm text-gray-700">{message}</p>
-        )}
+        {message && <p className="mt-4 text-center text-sm">{message}</p>}
       </div>
     </main>
   )

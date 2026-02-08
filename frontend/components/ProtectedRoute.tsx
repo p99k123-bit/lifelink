@@ -3,9 +3,17 @@ import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 
-export default function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
-  const { user, role, loading } = useAuth();
+type Props = {
+  children: React.ReactNode;
+  allowedRoles?: string[];
+  role?: string; // single-role shorthand used in some pages
+};
+
+export default function ProtectedRoute({ children, allowedRoles, role }: Props) {
+  const { user, role: userRole, loading } = useAuth();
   const router = useRouter();
+
+  const normalizedAllowed = role ? [role] : allowedRoles ?? [];
 
   useEffect(() => {
     if (loading) return;
@@ -14,15 +22,15 @@ export default function ProtectedRoute({ children, allowedRoles }: { children: R
       router.push("/auth/login");
       return;
     }
-    if (allowedRoles?.length && role && !allowedRoles.includes(role)) {
-      console.log("ProtectedRoute: role mismatch", { required: allowedRoles, actual: role });
+    if (normalizedAllowed.length && userRole && !normalizedAllowed.includes(userRole)) {
+      console.log("ProtectedRoute: role mismatch", { required: normalizedAllowed, actual: userRole });
       router.push("/");
       return;
     }
-  }, [user, role, loading, router, allowedRoles]);
+  }, [user, userRole, loading, router, normalizedAllowed]);
 
   if (loading) return <div>Loading...</div>;
   if (!user) return null;
-  if (allowedRoles?.length && role && !allowedRoles.includes(role)) return null;
+  if (normalizedAllowed.length && userRole && !normalizedAllowed.includes(userRole)) return null;
   return <>{children}</>;
 }

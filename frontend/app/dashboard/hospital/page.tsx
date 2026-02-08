@@ -8,7 +8,7 @@ import ProtectedRoute from '../../../components/ProtectedRoute'
 import InventoryEditor from '../../../components/InventoryEditor'
 import { useToast } from '../../../components/ToastContext'
 
-export default function HospitalDashboard() {
+function HospitalDashboard() {
   const { user } = useAuth()
   const toast = useToast()
   const [inventory, setInventory] = useState<any[]>([])
@@ -66,4 +66,8 @@ export default function HospitalDashboard() {
     </div>
     </ProtectedRoute>
   )
+}
+
+export default function HospitalDashboardAlias() {
+  return <ProtectedRoute role={"hospital"}><HospitalDashboard /></ProtectedRoute>;
 }

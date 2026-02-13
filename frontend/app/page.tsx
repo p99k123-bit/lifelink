@@ -1,80 +1,83 @@
-"use client";
 import Link from "next/link";
-import React from "react";
+import { ArrowRight, Building2, HeartPulse, ShieldCheck } from "lucide-react";
+import { redirect } from "next/navigation";
+import { getDashboardPath } from "../lib/auth";
+import { getCurrentUserAndRole } from "../lib/auth-server";
+import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { role, configurationError } = await getCurrentUserAndRole();
+
+  if (role) {
+    redirect(getDashboardPath(role));
+  }
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <header className="flex flex-col items-center text-center gap-6">
-        <h1 className="text-3xl sm:text-5xl font-bold">
-          Donate blood. Save lives.
-        </h1>
-        <p className="text-gray-600 max-w-xl">
-          A simple platform connecting donors and hospitals in emergencies.
-        </p>
-        <div className="flex gap-4">
-          <Link
-            href="/auth/signup"
-            className="btn-blood px-4 py-2 rounded shadow"
-          >
-            Donate Blood
+    <main className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+      {configurationError ? (
+        <Card className="mb-6 border-amber-200 bg-amber-50/70">
+          <h2 className="text-base font-semibold text-amber-900">Authentication setup is incomplete</h2>
+          <p className="mt-1 text-sm text-amber-800">{configurationError}</p>
+          <Link href="/auth/setup" className="mt-3 inline-flex text-sm font-semibold text-amber-900 underline underline-offset-2">
+            Open setup instructions
           </Link>
-          <Link
-            href="/auth/login"
-            className="px-4 py-2 rounded border"
-          >
-            Request Blood
-          </Link>
-        </div>
-      </header>
+        </Card>
+      ) : null}
 
-      <section className="mt-12 grid gap-8 sm:grid-cols-2">
-        <div className="p-6 rounded shadow-sm border">
-          <h3 className="font-semibold">How it works</h3>
-          <ol className="mt-2 text-sm text-gray-600 list-decimal list-inside">
-            <li>Hospitals post emergency requests.</li>
-            <li>Nearby donors get notified and respond.</li>
-            <li>Requests are fulfilled and tracked.</li>
-          </ol>
-        </div>
+      <section className="relative overflow-hidden rounded-3xl border border-white/80 bg-white/85 px-6 py-10 shadow-[0_35px_70px_-40px_rgba(15,23,42,0.55)] backdrop-blur sm:px-10">
+        <div className="absolute -left-16 -top-20 h-52 w-52 rounded-full bg-rose-200/70 blur-3xl" />
+        <div className="absolute -right-12 bottom-0 h-44 w-44 rounded-full bg-sky-200/70 blur-3xl" />
 
-        <div className="p-6 rounded shadow-sm border">
-          <h3 className="font-semibold">Stats</h3>
-          <div className="mt-4 grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-2xl font-bold">120</div>
-              <div className="text-sm text-gray-500">Hospitals</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">4,532</div>
-              <div className="text-sm text-gray-500">Lives Saved</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">9,101</div>
-              <div className="text-sm text-gray-500">Donations</div>
-            </div>
+        <div className="relative z-10 max-w-3xl animate-fade-slide">
+          <p className="inline-flex rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-rose-700">
+            Emergency Response Network
+          </p>
+          <h1 className="mt-4 text-4xl font-semibold leading-tight text-slate-900 sm:text-5xl">
+            BloodLine orchestrates donor, hospital, and admin operations in one secure workflow.
+          </h1>
+          <p className="mt-4 max-w-2xl text-base text-slate-600 sm:text-lg">
+            A production-grade blood logistics platform with verified role access, live request pipelines, and operational analytics.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link href="/auth/signup">
+              <Button>
+                Get Started
+                <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/auth/login">
+              <Button variant="ghost">Sign in</Button>
+            </Link>
           </div>
         </div>
       </section>
 
-      <div className="text-center py-20">
-        <h1 className="text-3xl font-bold mb-4">BloodLine</h1>
-        <p className="mb-6">Connect donors, hospitals and admins to save lives.</p>
-        <div className="flex justify-center gap-4">
-          <Link
-            href="/auth/signup"
-            className="px-4 py-2 bg-blue-600 text-white rounded"
-          >
-            Get Started
-          </Link>
-          <Link
-            href="/auth/login"
-            className="px-4 py-2 border rounded"
-          >
-            Login
-          </Link>
-        </div>
-      </div>
-    </div>
+      <section className="mt-8 grid gap-4 md:grid-cols-3">
+        <Card className="animate-fade-slide">
+          <HeartPulse className="h-5 w-5 text-rose-600" />
+          <h2 className="mt-3 text-lg font-semibold">Donor Intelligence</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Eligibility tracking, donation timelines, and nearby emergency visibility.
+          </p>
+        </Card>
+
+        <Card className="animate-fade-slide">
+          <Building2 className="h-5 w-5 text-sky-600" />
+          <h2 className="mt-3 text-lg font-semibold">Hospital Command</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Request creation, donor discovery, stock monitoring, and donation logs.
+          </p>
+        </Card>
+
+        <Card className="animate-fade-slide">
+          <ShieldCheck className="h-5 w-5 text-emerald-600" />
+          <h2 className="mt-3 text-lg font-semibold">Admin Controls</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            User governance, suspension controls, and blood group analytics for scale.
+          </p>
+        </Card>
+      </section>
+    </main>
   );
 }

@@ -1,79 +1,37 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseBrowserConfig, getSupabaseBrowserConfigError } from "./supabase-env";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+let browserClient: SupabaseClient | null = null;
 
-const missingMsg =
-  "Missing Supabase environment variables NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. " +
-  "Set them and restart the dev server.";
+function getSupabaseConfig() {
+  const config = getSupabaseBrowserConfig();
 
-function makeMissingFrom() {
-  const chain: any = {
-    eq() {
-      return chain;
-    },
-    single() {
-      return Promise.reject(new Error(missingMsg));
-    },
-    select() {
-      return chain;
-    },
-    update() {
-      return chain;
-    },
-    insert() {
-      return chain;
-    },
-  };
-  return () => chain;
+  if (!config) {
+    throw new Error(getSupabaseBrowserConfigError());
+  }
+
+  return config;
 }
 
-let supabase: any;
+export function getSupabaseBrowserClient() {
+  if (browserClient) {
+    return browserClient;
+  }
 
-if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  });
-  if (process.env.NODE_ENV === "development") console.log("Supabase client initialized");
-} else {
-  // Provide a safe stub: property access is allowed, methods will throw when actually used.
-  const fromFactory = makeMissingFrom();
-  supabase = {
-    // auth methods used by the app
-    auth: {
-      // throws when called
-      getSession: async () => {
-        throw new Error(missingMsg);
-      },
-      signUp: async () => {
-        throw new Error(missingMsg);
-      },
-      signInWithPassword: async () => {
-        throw new Error(missingMsg);
-      },
-      signOut: async () => {
-        throw new Error(missingMsg);
-      },
-      // return a harmless subscription object so unsubscribe can be called safely
-      onAuthStateChange: (_cb: any) => {
-        return {
-          data: {
-            subscription: {
-              unsubscribe: () => {
-                /* noop */
-              },
-            },
-          },
-        };
-      },
-    },
-    // database from() chainable stub
-    from: fromFactory(),
-  };
-  if (process.env.NODE_ENV === "development") console.warn(missingMsg);
+  const { url, anonKey } = getSupabaseConfig();
+  browserClient = createBrowserClient(url, anonKey);
+  return browserClient;
 }
 
-export { supabase };
+// Backward-compatible export for legacy files still in the repo.
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    const client = getSupabaseBrowserClient() as unknown as Record<PropertyKey, unknown>;
+    const value = client[prop];
+    if (typeof value === "function") {
+      return (value as (...args: unknown[]) => unknown).bind(client);
+    }
+    return value;
+  },
+});

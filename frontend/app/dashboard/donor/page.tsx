@@ -1,8 +1,5 @@
-"use client";
-import React from "react";
-import ProtectedRoute from "../../../components/ProtectedRoute";
-import DonorDashboard from "../../donor/dashboard/page";
+﻿import { redirect } from "next/navigation";
 
-export default function DonorDashboardAlias() {
-  return <ProtectedRoute role={"donor"}><DonorDashboard /></ProtectedRoute>;
+export default function LegacyRedirectPage() {
+  redirect("/donor/dashboard");
 }

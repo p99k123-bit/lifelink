@@ -1,22 +1,29 @@
-'use client'
-import './globals.css'
-import { AuthProvider } from '../context/AuthContext'
-import Navbar from '../components/Navbar'
-import { ToastProvider } from '../components/ToastContext'
+﻿import type { Metadata } from "next";
+import { Manrope, Space_Grotesk } from "next/font/google";
+import "./globals.css";
+import { AppProviders } from "../components/ui/providers";
+
+const headingFont = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-heading",
+});
+
+const bodyFont = Manrope({
+  subsets: ["latin"],
+  variable: "--font-body",
+});
+
+export const metadata: Metadata = {
+  title: "BloodLine",
+  description: "Production-grade blood donation coordination platform",
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <html lang="en">
-          <body className="min-h-screen bg-gray-50 text-slate-900">
-            <div>
-              <Navbar />
-              <main className="container mx-auto px-4 py-6">{children}</main>
-            </div>
-          </body>
-        </html>
-      </ToastProvider>
-    </AuthProvider>
-  )
+    <html lang="en" className={`${headingFont.variable} ${bodyFont.variable}`}>
+      <body className="min-h-screen bg-app text-slate-900 antialiased">
+        <AppProviders>{children}</AppProviders>
+      </body>
+    </html>
+  );
 }

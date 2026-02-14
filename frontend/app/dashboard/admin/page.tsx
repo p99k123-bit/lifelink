@@ -1,8 +1,5 @@
-"use client";
-import React from "react";
-import ProtectedRoute from "../../../components/ProtectedRoute";
-import AdminDashboard from "../../admin/dashboard/page";
+﻿import { redirect } from "next/navigation";
 
-export default function AdminDashboardAlias() {
-  return <ProtectedRoute role={"admin"}><AdminDashboard /></ProtectedRoute>;
+export default function LegacyRedirectPage() {
+  redirect("/admin/dashboard");
 }

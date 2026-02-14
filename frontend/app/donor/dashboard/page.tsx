@@ -1,191 +1,145 @@
-"use client"
-import React, { useEffect, useState } from "react"
-import ProtectedRoute from "../../../components/ProtectedRoute"
-import { supabase } from "../../../lib/supabaseClient"
-import { useToast } from "../../../components/ToastContext"
-import { donorApi } from "../../../lib/api"
-import Input from "../../../components/Input"
-import Button from "../../../components/Button"
+﻿import { CalendarClock, Droplets, HeartHandshake, ShieldCheck } from "lucide-react";
+import { DashboardShell } from "../../../components/dashboard/dashboard-shell";
+import { SectionHeader } from "../../../components/dashboard/section-header";
+import { StatCard } from "../../../components/dashboard/stat-card";
+import { DonorProfileEditor } from "../../../components/forms/donor-profile-editor";
+import { Badge } from "../../../components/ui/badge";
+import { Card } from "../../../components/ui/card";
+import { EmptyState } from "../../../components/ui/empty-state";
+import { Table, TD, TH, THead, TR } from "../../../components/ui/table";
+import { requireRole } from "../../../lib/auth-server";
+import { formatDate, formatDateTime, formatRelativeDay } from "../../../lib/format";
+import { getDonorDashboardData } from "../../../lib/services/donor";
 
-type Hospital = {
-  id: string
-  name?: string
-  address?: string
-  city?: string
-  contact_phone?: string
-  license_number?: string
-}
+const donorNav = [
+  { href: "/donor/dashboard", label: "Dashboard", icon: "dashboard" as const },
+  { href: "/donor/profile", label: "Profile", icon: "profile" as const },
+  { href: "/donor/history", label: "History", icon: "history" as const },
+];
 
-export default function DonorDashboard() {
-  const toast = useToast()
-  const [hospitals, setHospitals] = useState<Hospital[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<Hospital | null>(null)
-  const [sharing, setSharing] = useState(false)
+export default async function DonorDashboardPage() {
+  const { supabase, user } = await requireRole("donor");
+  const data = await getDonorDashboardData(supabase, user.id);
 
-  // donor form state
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    blood_group: "O+",
-    city: "",
-    age: ""
-  })
-  const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    let mounted = true
-    const fetch = async () => {
-      setLoading(true)
-      try {
-        const { data, error } = await supabase.from("hospitals").select("*").order("created_at", { ascending: false })
-        if (error) {
-          console.warn("fetch hospitals error", error)
-          if (mounted) setHospitals([])
-        } else {
-          if (mounted) setHospitals((data as Hospital[]) || [])
-        }
-      } catch (err) {
-        console.error(err)
-        if (mounted) setHospitals([])
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    }
-    fetch()
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  const handleShareLocation = async (hp: Hospital) => {
-    setSharing(true)
-    try {
-      if (!("geolocation" in navigator)) {
-        toast.error("Geolocation not available in this browser")
-        setSharing(false)
-        return
-      }
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const { latitude, longitude } = pos.coords
-          const mapsLink = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
-          const text = `I'm available to donate near ${hp.city || "your area"}. My location: ${mapsLink}`
-          if ((navigator as any).share) {
-            try {
-              await (navigator as any).share({ title: "Donate location", text, url: mapsLink })
-              toast.success("Shared location")
-            } catch (e) {
-              // user cancelled share
-              toast.info("Share cancelled")
-            }
-          } else {
-            await navigator.clipboard.writeText(text)
-            toast.success("Location copied to clipboard")
-          }
-        },
-        (err) => {
-          console.error("geolocation error", err)
-          toast.error("Unable to get location")
-        },
-        { enableHighAccuracy: false, timeout: 10000 }
-      )
-    } catch (err) {
-      console.error(err)
-      toast.error("Failed to share location")
-    } finally {
-      setSharing(false)
-    }
-  }
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitting(true)
-    try {
-      const payload = {
-        name: form.name,
-        phone: form.phone,
-        blood_group: form.blood_group,
-        city: form.city,
-        age: Number(form.age || 0)
-      }
-      await donorApi.register(payload)
-      toast.success("Registered as donor — thank you!")
-      setForm({ name: "", phone: "", blood_group: "O+", city: "", age: "" })
-    } catch (err: any) {
-      console.error("donor register error", err)
-      const msg = err?.response?.data?.error?.message || err?.message || "Registration failed"
-      toast.error(msg)
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const donorName = data.donor?.full_name || user.email?.split("@")[0] || "Donor";
+  const bloodGroup = data.donor?.blood_group || "Not set";
+  const latestDonations = data.donations.slice(0, 6);
 
   return (
-    <ProtectedRoute role={"donor"}>
-      <div className="max-w-5xl mx-auto p-4">
-        <h1 className="text-2xl font-semibold mb-4">Donor dashboard</h1>
-
-        <section className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold">Hospitals near you</h2>
-              <div className="text-sm text-gray-500">{loading ? "Loading..." : `${hospitals.length} found`}</div>
+    <DashboardShell
+      title="Donor Dashboard"
+      subtitle="Track eligibility, response opportunities, and donation activity."
+      roleLabel="Donor"
+      email={user.email ?? "donor@bloodline"}
+      navItems={donorNav}
+    >
+      <div className="space-y-5">
+        <Card className="bg-gradient-to-r from-rose-600 to-rose-500 text-white">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-rose-100">Welcome back</p>
+              <h2 className="mt-2 text-2xl font-semibold">{donorName}</h2>
+              <p className="mt-1 text-sm text-rose-100">Keep your profile current to receive matching emergency requests quickly.</p>
             </div>
-
-            <div className="space-y-3">
-              {hospitals.map((hp) => (
-                <div key={hp.id} className="p-3 border rounded bg-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{hp.name || "Unnamed Hospital"}</div>
-                      <div className="text-sm text-gray-500">{hp.city}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setSelected(hp)} className="px-3 py-1 border rounded text-sm">Details</button>
-                      <button onClick={() => handleShareLocation(hp)} disabled={sharing} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
-                        {sharing ? "Sharing..." : "Share my location"}
-                      </button>
-                    </div>
-                  </div>
-                  {selected?.id === hp.id && (
-                    <div className="mt-3 text-sm">
-                      <div><strong>Address:</strong> {hp.address || "—"}</div>
-                      <div><strong>Phone:</strong> {hp.contact_phone || "—"}</div>
-                      <div><strong>License:</strong> {hp.license_number || "—"}</div>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {hospitals.length === 0 && !loading && <div className="text-sm text-gray-500">No hospitals available.</div>}
+            <div className="flex flex-col items-start gap-2">
+              <Badge tone={data.isEligible ? "success" : "warning"} className="bg-white/90">
+                {data.isEligible ? "Eligible" : "Cooldown"}
+              </Badge>
+              <DonorProfileEditor donor={data.donor} />
             </div>
           </div>
+        </Card>
 
-          <aside>
-            <div className="p-4 border rounded bg-white">
-              <h2 className="font-semibold mb-2">Register to donate</h2>
-              <form onSubmit={handleRegister} className="space-y-3">
-                <Input label="Full name" value={form.name} onChange={(e:any) => setForm({...form, name: e.target.value})} />
-                <Input label="Phone" value={form.phone} onChange={(e:any) => setForm({...form, phone: e.target.value})} />
-                <label className="block">
-                  <div className="text-sm mb-1">Blood group</div>
-                  <select value={form.blood_group} onChange={(e) => setForm({...form, blood_group: e.target.value})} className="border rounded px-3 py-2 w-full">
-                    <option>O+</option><option>O-</option><option>A+</option><option>A-</option>
-                    <option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
-                  </select>
-                </label>
-                <Input label="City" value={form.city} onChange={(e:any) => setForm({...form, city: e.target.value})} />
-                <Input label="Age" type="number" value={form.age} onChange={(e:any) => setForm({...form, age: e.target.value})} />
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={submitting}>{submitting ? "Submitting..." : "Register & Donate"}</Button>
-                  <Button variant="ghost" onClick={() => setForm({ name: "", phone: "", blood_group: "O+", city: "", age: "" })}>Clear</Button>
-                </div>
-                <div className="text-xs text-gray-500">By registering you make your contact available to hospitals for donation coordination.</div>
-              </form>
-            </div>
-          </aside>
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard title="Total donations" value={String(data.totalDonations)} hint="Recorded donation events" icon={HeartHandshake} />
+          <StatCard title="Total units" value={`${data.totalUnitsDonated} units`} hint="Across all donation visits" icon={Droplets} />
+          <StatCard title="Blood group" value={bloodGroup} hint="Used for request matching" icon={ShieldCheck} />
+          <StatCard
+            title="Next eligible date"
+            value={data.nextEligibleAt ? formatDate(data.nextEligibleAt) : "Now"}
+            hint={formatRelativeDay(data.nextEligibleAt)}
+            icon={CalendarClock}
+          />
+        </section>
+
+        <section className="grid gap-4 xl:grid-cols-2">
+          <Card>
+            <SectionHeader title="Recent activity" description="Latest donation records linked to your account." />
+            {!latestDonations.length ? (
+              <EmptyState title="No donations yet" description="Your first completed donation will appear here." />
+            ) : (
+              <div className="space-y-3">
+                {latestDonations.map((entry) => (
+                  <div key={entry.id} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-slate-800">
+                        {entry.blood_group} - {entry.units} unit{entry.units > 1 ? "s" : ""}
+                      </p>
+                      <span className="text-xs text-slate-500">{formatDate(entry.donated_on)}</span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">{entry.city || "City not specified"}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <SectionHeader title="Nearby requests" description="Open emergency requests in your city." />
+            {!data.nearbyRequests.length ? (
+              <EmptyState title="No nearby requests" description="New emergency requests in your city will show up here." />
+            ) : (
+              <div className="space-y-3">
+                {data.nearbyRequests.map((request) => (
+                  <div key={request.id} className="rounded-xl border border-slate-100 p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium text-slate-800">
+                        {request.blood_group} - {request.units} unit{request.units > 1 ? "s" : ""}
+                      </p>
+                      <Badge tone={request.urgency_level === "critical" ? "danger" : request.urgency_level === "medium" ? "warning" : "info"}>
+                        {request.urgency_level}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">{request.city}</p>
+                    <p className="mt-1 text-xs text-slate-500">Created {formatDateTime(request.created_at)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </section>
+
+        <section>
+          <SectionHeader title="Donation history" description="Auditable log of all recorded donations." />
+          {!data.donations.length ? (
+            <EmptyState title="History is empty" description="Complete your first donation to start building your timeline." />
+          ) : (
+            <Table>
+              <THead>
+                <tr>
+                  <TH>Date</TH>
+                  <TH>Blood group</TH>
+                  <TH>Units</TH>
+                  <TH>City</TH>
+                  <TH>Request</TH>
+                </tr>
+              </THead>
+              <tbody>
+                {data.donations.map((entry) => (
+                  <TR key={entry.id}>
+                    <TD>{formatDate(entry.donated_on)}</TD>
+                    <TD>{entry.blood_group}</TD>
+                    <TD>{entry.units}</TD>
+                    <TD>{entry.city || "-"}</TD>
+                    <TD>{entry.request_id || "Direct"}</TD>
+                  </TR>
+                ))}
+              </tbody>
+            </Table>
+          )}
         </section>
       </div>
-    </ProtectedRoute>
-  )
+    </DashboardShell>
+  );
 }
+

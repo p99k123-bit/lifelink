@@ -16,6 +16,7 @@ pnpm-lock.yaml
 .next/
 out/
 .build/
+*.tsbuildinfo
 
 # Env
 .env

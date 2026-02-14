@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "db:seed:investor": "node scripts/seed-investor-demo.cjs"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3"
   }
